@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>ADMIN — SISTEMA DE CORTE PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:linear-gradient(135deg,#020617,#0f172a);
+  color:#e5e7eb;
+}
+header{
+  text-align:center;
+  padding:20px;
+  background:#020617;
+  box-shadow:0 4px 10px rgba(0,0,0,.4);
+}
+header h1{margin:0;font-size:22px}
+header small{color:#94a3b8}
+
+.container{
+  max-width:1000px;
+  margin:auto;
+  padding:20px;
+}
+
+.card{
+  background:#020617;
+  border-radius:14px;
+  padding:25px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+}
+
+input,button{
+  width:100%;
+  padding:12px;
+  border-radius:8px;
+  border:none;
+  margin-top:10px;
+  font-size:15px;
+}
+
+button{
+  background:#10b981;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover{opacity:.9}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+  background:#020617;
+}
+th,td{
+  border:1px solid #1e293b;
+  padding:10px;
+  text-align:center;
+}
+th{
+  background:#0f172a;
+}
+.badge-on{color:#22c55e;font-weight:bold}
+.badge-off{color:#ef4444;font-weight:bold}
+
+.hidden{display:none}
+.error{color:#ef4444;margin-top:10px}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>SISTEMA DE CORTE PRO</h1>
+  <small>Admin • by Carlos Daniel / DANI</small>
+</header>
+
+<!-- LOGIN -->
+<div class="container" id="loginBox">
+  <div class="card">
+    <h3>Login Admin</h3>
+    <input type="password" id="adminPass" placeholder="Senha admin">
+    <button onclick="login()">Entrar</button>
+    <div id="msg" class="error"></div>
+  </div>
+</div>
+
+<!-- PAINEL -->
+<div class="container hidden" id="panel">
+  <div class="card">
+    <h3>Clientes Cadastrados</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Cliente</th>
+          <th>Senha</th>
+          <th>Validade</th>
+          <th>Plano</th>
+          <th>PC</th>
+        </tr>
+      </thead>
+      <tbody id="lista">
+        <tr><td colspan="6">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ================= CONFIG =================
+const ADMIN_PASS = "Amor2403";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuSmsymsS19AqaRjVWOlcRA2FfU4yanFPiTFIvp4_VPyxm3vFF0i0ocZAY7hoe1XzfwP0wslP2dKWR/pub?output=csv";
+
+// ================= LOGIN =================
+function login(){
+  if(document.getElementById("adminPass").value !== ADMIN_PASS){
+    document.getElementById("msg").innerText = "Senha incorreta";
+    return;
+  }
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("panel").classList.remove("hidden");
+  carregarClientes();
+}
+
+// ================= CSV =================
+function parseCSV(text){
+  return text.trim().split("\n").map(l=>l.split(","));
+}
+
+// ================= CARREGAR =================
+async function carregarClientes(){
+  const tbody = document.getElementById("lista");
+  try{
+    const res = await fetch(CSV_URL + "&_=" + Date.now());
+    const csv = await res.text();
+    const rows = parseCSV(csv);
+
+    tbody.innerHTML = "";
+
+    for(let i=1;i<rows.length;i++){
+      const c = rows[i];
+      if(c.length < 6) continue;
+
+      tbody.innerHTML += `
+      <tr>
+        <td class="${c[0]==="ON"?"badge-on":"badge-off"}">${c[0]}</td>
+        <td>${c[4]}</td>
+        <td>${c[1]}</td>
+        <td>${c[2]}</td>
+        <td>${c[5]}</td>
+        <td>${c[3]}</td>
+      </tr>`;
+    }
+
+    if(!tbody.innerHTML){
+      tbody.innerHTML = "<tr><td colspan='6'>Nenhum cliente</td></tr>";
+    }
+
+  }catch(e){
+    tbody.innerHTML = "<tr><td colspan='6'>Erro ao carregar</td></tr>";
+    console.error(e);
+  }
+}
+</script>
+
+</body>
+</html>
