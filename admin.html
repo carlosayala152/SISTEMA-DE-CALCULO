@@ -8,68 +8,65 @@
 <style>
 body{
   margin:0;
-  font-family:Arial,Helvetica,sans-serif;
+  font-family:Segoe UI,Arial,sans-serif;
   background:linear-gradient(135deg,#020617,#0f172a);
   color:#e5e7eb;
 }
 header{
-  text-align:center;
-  padding:20px;
   background:#020617;
-  box-shadow:0 4px 10px rgba(0,0,0,.4);
+  padding:18px;
+  text-align:center;
 }
 header h1{margin:0;font-size:22px}
 header small{color:#94a3b8}
 
 .container{
-  max-width:1000px;
+  max-width:1100px;
   margin:auto;
   padding:20px;
 }
-
 .card{
   background:#020617;
+  padding:20px;
   border-radius:14px;
-  padding:25px;
+  margin-bottom:20px;
   box-shadow:0 10px 30px rgba(0,0,0,.5);
 }
-
-input,button{
+input,select,button{
   width:100%;
-  padding:12px;
+  padding:10px;
+  margin-top:8px;
   border-radius:8px;
   border:none;
-  margin-top:10px;
-  font-size:15px;
 }
-
 button{
   background:#10b981;
   color:#fff;
   font-weight:bold;
   cursor:pointer;
 }
-button:hover{opacity:.9}
+button.red{background:#dc2626}
+button.gray{background:#64748b}
 
 table{
   width:100%;
   border-collapse:collapse;
-  margin-top:20px;
+  margin-top:15px;
   background:#020617;
 }
 th,td{
   border:1px solid #1e293b;
-  padding:10px;
+  padding:8px;
   text-align:center;
 }
-th{
-  background:#0f172a;
-}
+th{background:#0f172a}
+
 .badge-on{color:#22c55e;font-weight:bold}
 .badge-off{color:#ef4444;font-weight:bold}
+.actions button{margin:2px;font-size:12px}
 
 .hidden{display:none}
-.error{color:#ef4444;margin-top:10px}
+.msg{color:#f87171;margin-top:10px}
 </style>
 </head>
 
@@ -86,14 +83,41 @@ th{
     <h3>Login Admin</h3>
     <input type="password" id="adminPass" placeholder="Senha admin">
     <button onclick="login()">Entrar</button>
-    <div id="msg" class="error"></div>
+    <div class="msg" id="msg"></div>
   </div>
 </div>
 
 <!-- PAINEL -->
 <div class="container hidden" id="panel">
+
+  <!-- FORM CLIENTE -->
   <div class="card">
-    <h3>Clientes Cadastrados</h3>
+    <h3 id="formTitle">Criar Cliente</h3>
+
+    <select id="status">
+      <option value="ON">ON</option>
+      <option value="OFF">OFF</option>
+    </select>
+
+    <input id="senha" placeholder="Senha do cliente">
+    <input id="validade" type="date">
+    <input id="cliente" placeholder="Nome do cliente">
+
+    <select id="plano">
+      <option>MENSAL</option>
+      <option>TRIMESTRAL</option>
+      <option>ANUAL</option>
+    </select>
+
+    <input type="hidden" id="linha">
+
+    <button onclick="salvar()">Salvar</button>
+    <button class="gray" onclick="limpar()">Cancelar</button>
+  </div>
+
+  <!-- LISTA -->
+  <div class="card">
+    <h3>Clientes</h3>
 
     <table>
       <thead>
@@ -103,7 +127,7 @@ th{
           <th>Senha</th>
           <th>Validade</th>
           <th>Plano</th>
-          <th>PC</th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody id="lista">
@@ -111,62 +135,97 @@ th{
       </tbody>
     </table>
   </div>
+
 </div>
 
 <script>
 // ================= CONFIG =================
 const ADMIN_PASS = "Amor2403";
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuSmsymsS19AqaRjVWOlcRA2FfU4yanFPiTFIvp4_VPyxm3vFF0i0ocZAY7hoe1XzfwP0wslP2dKWR/pub?output=csv";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwOdsX379ZbfUitlgsuaL5GmF3Hm8tu8xQHQoeoqAWZ8q3pvvbz7K5LmEaYGzyXjn8S/exec";
 
 // ================= LOGIN =================
 function login(){
-  if(document.getElementById("adminPass").value !== ADMIN_PASS){
-    document.getElementById("msg").innerText = "Senha incorreta";
+  if(adminPass.value !== ADMIN_PASS){
+    msg.innerText = "Senha incorreta";
     return;
   }
-  document.getElementById("loginBox").classList.add("hidden");
-  document.getElementById("panel").classList.remove("hidden");
-  carregarClientes();
+  loginBox.classList.add("hidden");
+  panel.classList.remove("hidden");
+  carregar();
 }
 
-// ================= CSV =================
-function parseCSV(text){
-  return text.trim().split("\n").map(l=>l.split(","));
+// ================= API =================
+async function api(dados){
+  const r = await fetch(SCRIPT_URL,{
+    method:"POST",
+    body:JSON.stringify(dados)
+  });
+  return r.json();
 }
 
-// ================= CARREGAR =================
-async function carregarClientes(){
+// ================= LOAD =================
+async function carregar(){
+  const r = await api({acao:"LISTAR"});
   const tbody = document.getElementById("lista");
-  try{
-    const res = await fetch(CSV_URL + "&_=" + Date.now());
-    const csv = await res.text();
-    const rows = parseCSV(csv);
+  tbody.innerHTML = "";
 
-    tbody.innerHTML = "";
-
-    for(let i=1;i<rows.length;i++){
-      const c = rows[i];
-      if(c.length < 6) continue;
-
-      tbody.innerHTML += `
+  r.forEach((c,i)=>{
+    tbody.innerHTML += `
       <tr>
-        <td class="${c[0]==="ON"?"badge-on":"badge-off"}">${c[0]}</td>
-        <td>${c[4]}</td>
-        <td>${c[1]}</td>
-        <td>${c[2]}</td>
-        <td>${c[5]}</td>
-        <td>${c[3]}</td>
+        <td class="${c.status==="ON"?"badge-on":"badge-off"}">${c.status}</td>
+        <td>${c.cliente}</td>
+        <td>${c.senha}</td>
+        <td>${c.validade}</td>
+        <td>${c.plano}</td>
+        <td class="actions">
+          <button onclick="editar(${i})">Editar</button>
+          <button class="red" onclick="bloquear(${i})">ON/OFF</button>
+        </td>
       </tr>`;
-    }
+  });
+}
 
-    if(!tbody.innerHTML){
-      tbody.innerHTML = "<tr><td colspan='6'>Nenhum cliente</td></tr>";
-    }
+// ================= CRUD =================
+async function salvar(){
+  await api({
+    acao: linha.value ? "ATUALIZAR" : "CRIAR",
+    linha: linha.value,
+    status: status.value,
+    senha: senha.value,
+    validade: validade.value,
+    cliente: cliente.value,
+    plano: plano.value
+  });
+  limpar();
+  carregar();
+}
 
-  }catch(e){
-    tbody.innerHTML = "<tr><td colspan='6'>Erro ao carregar</td></tr>";
-    console.error(e);
-  }
+function editar(i){
+  api({acao:"GET",linha:i}).then(c=>{
+    status.value = c.status;
+    senha.value = c.senha;
+    validade.value = c.validade;
+    cliente.value = c.cliente;
+    plano.value = c.plano;
+    linha.value = i;
+    formTitle.innerText = "Editar Cliente";
+  });
+}
+
+async function bloquear(i){
+  if(!confirm("Alternar status do cliente?")) return;
+  await api({acao:"TOGGLE",linha:i});
+  carregar();
+}
+
+function limpar(){
+  status.value="ON";
+  senha.value="";
+  validade.value="";
+  cliente.value="";
+  plano.value="MENSAL";
+  linha.value="";
+  formTitle.innerText="Criar Cliente";
 }
 </script>
 
